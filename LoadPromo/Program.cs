@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Numerics;
 
 namespace LoadPromos
 {
@@ -18,6 +19,8 @@ namespace LoadPromos
 
             int simChoice = Convert.ToInt32(Console.ReadLine());
 
+            string phoneNumber = GetPhoneNumber();
+
             Console.WriteLine("\n1. Regular Load");
             Console.WriteLine("2. Promos");
             Console.Write("Choose: ");
@@ -27,6 +30,29 @@ namespace LoadPromos
                 RegularLoad();
             else
                 PromoLoad(simChoice);
+        }
+
+        static string GetPhoneNumber()
+        {
+            while (true)
+            {
+                Console.Write("Enter phone number: ");
+                string phoneNumber = Console.ReadLine() ?? "";
+
+                bool isALLDigits = true;
+                for (int i = 0; i < phoneNumber.Length; i++)
+                    if (!char.IsDigit(phoneNumber[i]))
+                    {
+                        isALLDigits = false;
+                        break;
+                    }
+                
+
+                if (phoneNumber.Length == 11 && phoneNumber.StartsWith("09") && isALLDigits)
+                    return phoneNumber;
+                else
+                    Console.WriteLine("Invalid phone number. Please try again.");
+            }
         }
 
 
