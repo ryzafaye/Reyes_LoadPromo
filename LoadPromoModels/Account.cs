@@ -1,4 +1,8 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 
 namespace LoadPromoModels
 {
@@ -16,22 +20,5 @@ namespace LoadPromoModels
         public string ActiveData { get; set; } = "None";
         public string ActiveExpiry { get; set; } = "None";
         public string ActiveFreebies { get; set; } = "None";
-    }
-
-    public class Transaction
-    {
-        public string RefNumber { get; set; } = string.Empty;
-        public string Date { get; set; } = string.Empty;
-        public string Details { get; set; } = string.Empty;
-    }
-
-    public class PromoItem
-    {
-        public string Name { get; set; } = string.Empty;
-        public int Price { get; set; }
-        public string DataAllowance { get; set; } = string.Empty;
-        public string Freebies { get; set; } = string.Empty;
-        public int ValidityDays { get; set; }
-
     }
 }

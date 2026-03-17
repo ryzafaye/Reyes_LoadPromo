@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Numerics;
 using LoadPromoAppService;
 using LoadPromoModels;
 
@@ -64,7 +65,7 @@ namespace LoadPromo
             }
 
             Console.Write("Select your default SIM Network: ");
-            int netId = GetValidMenuChoice(5);
+            int netId = GetValidMenuChoice(networks.Count);
 
             Console.Write("Enter your default mobile number: (+63)");
             string phone = GetValidPhoneNumber().ToString();
@@ -78,30 +79,35 @@ namespace LoadPromo
             Console.ReadLine();
         }
 
-        static string GetValidPhoneNumber()
+        static (string Phone, string NetworkName, int netId, bool IsMyNum) GetRecipientDetails()
         {
-            while (true)
+            Account myAcc = service.GetMyAccount();
+            Console.WriteLine("Select Recipient:");
+            Console.WriteLine("1. My number (+63)" + myAcc.PhoneNumber);
+            Console.WriteLine("2. Other number");
+            Console.Write("Select: ");
+            int userChoice = GetValidMenuChoice(2);
+
+            if (GetValidMenuChoice(2) == 1)
+            { 
+                return (myAcc.PhoneNumber, myAcc.Network, myAcc.NetworkID, true);
+            }
+            else
             {
-                string number = Console.ReadLine();
+                List<string> networks = service.GetNetworks();
+                Console.WriteLine("\nNETWORKS");
 
-                if (string.IsNullOrWhiteSpace(number))
+                for (int i = 0; i < networks.Count; i++)
                 {
-                    Console.Write("Mobile number cannot be empty. \n\nPlease enter your number again: (+63)");
-                    continue;
+                    Console.WriteLine((i + 1) + ". " + networks[i]);
                 }
+                Console.Write("Select: ");
+                int netId = GetValidMenuChoice(networks.Count);
 
-                bool isALLDigits = true;
-                for (int i = 0; i < number.Length; i++)
-                    if (!char.IsDigit(number[i]))
-                    {
-                        isALLDigits = false;
-                        break;
-                    }
+                Console.Write("Enter Recipient's Number: (+63)");
+                string phone = GetValidPhoneNumber();
 
-                if (number.Length == 10 && isALLDigits)
-                    return number;
-                else
-                    Console.Write("Invalid format (+63 XXXXXXXXXX). Must be all digits. \n\nPlease enter your number again: (+63)");
+                return (phone, networks[netId - 1], netId, false);
             }
         }
 
@@ -109,47 +115,26 @@ namespace LoadPromo
         {
             Console.Write("\nEnter amount to Cash-In: Php ");
             int amount = GetValidNumber();
-            string result = service.TopUp(amount);
-            Console.WriteLine(result);
+            TransactionResponse response = service.TopUp(amount);
+
+            if (response.ResultStatus == Status.InvalidAmount)
+            {
+                Console.WriteLine("\nTransaction Failed: Minimum amount is Php 5.");
+                return;
+            }
+
+            Account acc = service.GetMyAccount();
+            Console.WriteLine("\nWallet topped up sucessfully! \nNew Balance: Php " + acc.WalletBalance);
         }
             
         static void RegularLoad()
         {
-            Account myAcc = service.GetMyAccount();
-            int netId = myAcc.NetworkID;
-            string phone = myAcc.PhoneNumber;
-            string networkName = myAcc.Network;
-            bool isMyNum = true;
-           
+          
             Console.WriteLine("\n----- Regular Load -----");
-            Console.WriteLine("Select Recipient:");
-            Console.WriteLine("1. My number (+63)" + phone);
-            Console.WriteLine("2. Other number");
-            Console.Write("Select: ");
-            int userChoice = GetValidMenuChoice(2);
 
-            if (userChoice == 2)
-            {;
-                isMyNum = false;
-
-                Console.WriteLine("\nNETWORKS");
-                List<string> networks = service.GetNetworks();
-
-                for (int i = 0; i < networks.Count; i++)
-                {
-                    Console.WriteLine((i + 1) + ". " + networks[i]);
-                }
-                Console.Write("Select: ");
-                netId = GetValidMenuChoice(5);
-                networkName = networks[netId - 1];
-
-                isMyNum = false;
-                Console.Write("Enter Recipient's Number: (+63)");
-                phone = GetValidPhoneNumber();
-            }
-
+            var recipient = GetRecipientDetails();
+            
             List<int> loads = service.GetRegularLoadOptions();
-
             Console.WriteLine("\nRegular Loads Available");
 
             for (int i = 0; i < loads.Count; i++)
@@ -160,10 +145,9 @@ namespace LoadPromo
             Console.WriteLine((loads.Count + 1) + ". Other Amount");
 
             Console.Write("Select: ");
-            int choice = GetValidMenuChoice(loads.Count);
+            int choice = GetValidMenuChoice(loads.Count + 1);
 
             int amount = 0;
-
             if (choice <= loads.Count)
             {
                 amount = loads[choice - 1];
@@ -175,7 +159,7 @@ namespace LoadPromo
             }
 
             Console.WriteLine("\n==== CONFIRM TRANSACTION ====");
-            Console.WriteLine("Recipient     : +63" + phone);
+            Console.WriteLine("Recipient     : +63" + recipient.Phone);
             Console.WriteLine("Load          : " + "Regular " + amount);
             Console.WriteLine("Amount        : " + "Php " + amount);
             Console.WriteLine("Payment Via   : " + "Load Balance");
@@ -191,51 +175,36 @@ namespace LoadPromo
                 return;
             }
 
-            string receipt = service.BuyRegularLoad(amount, phone, isMyNum);
-            Console.WriteLine(receipt);
+            TransactionResponse response = service.BuyRegularLoad(amount, recipient.Phone, recipient.IsMyNum);
+
+            if (response.ResultStatus == Status.InsufficientBalance)
+            {
+                Console.WriteLine("\nInsufficient Wallet Balance. Please Top-Up first.");
+                return;
+            }
+
+            Account acc = service.GetMyAccount();
+            string expiry = DateTime.Now.AddDays(365).ToString("MM/dd/yyyy hh:mm tt");
+
+            Console.WriteLine($"\n-----------------------------------------\n" +
+                $"           NEW MESSAGE RECEIVED          \n" +               
+                $"-----------------------------------------\" +" +
+                $"\n{response.ReceiptData.Date}\n\nCongratulations! You have successfully loaded Regular {amount} to 0{recipient.Phone}. Valid Until {expiry}.\nYou earned {amount / 100.0} point(s) from this transaction. You have a total of {acc.TotalPoints} point(s).\nRemaining Load Balance: {acc.WalletBalance} \n\nRef No. {response.ReceiptData.RefNumber}\n-----------------------------------------\n");
+
         }
 
         static void PromoLoad()
             {
             Console.WriteLine("\n---- REGISTER PROMO ----");
 
-            Account myAcc = service.GetMyAccount();
-            int netId = myAcc.NetworkID;
-            string phone = myAcc.PhoneNumber;
-            string networkName = myAcc.Network;
-            bool isMyNum = true;
+            var recipient = GetRecipientDetails();
 
-            Console.WriteLine("Select Recipient:");
-            Console.WriteLine("1. My number (+63)" + phone);
-            Console.WriteLine("2. Other number");
-            Console.Write("Select: ");          
-            int userChoice = GetValidMenuChoice(2);
-
-            if (userChoice == 2)
-            {
-                Console.WriteLine("\nNETWORKS");
-                isMyNum = false;
-                List<string> networks = service.GetNetworks();
-
-                for (int i = 0; i < networks.Count; i++)
-                {
-                    Console.WriteLine((i + 1) + ". " + networks[i]);
-                }
-                Console.Write("Select: ");
-                netId = GetValidMenuChoice(5);
-                networkName = networks[netId - 1];
-
-                Console.Write("Enter Recipient's Number: (+63)");
-                phone = GetValidPhoneNumber();
-            }
-
-            List<PromoItem> promos = service.GetPromos(netId);
+            List<PromoItem> promos = service.GetPromos(recipient.netId);
            
             Console.WriteLine("\nAvailable Promos:");
 
             for (int i = 0; i < promos.Count; i++)
             {
-                string validity = promos[i].ValidityDays == 0 ? "No Expiration" : promos[i].ValidityDays + " Days";
                 Console.WriteLine((i + 1) + ". " + promos[i].Name);
             }
                 Console.Write("Select Promo: ");
@@ -243,7 +212,7 @@ namespace LoadPromo
                 PromoItem selectedPromo = promos[choice - 1];
 
             Console.WriteLine("\n===== CONFIRM TRANSACTION =====");
-            Console.WriteLine("Recipient     : (+63)" + phone);
+            Console.WriteLine("Recipient     : (+63)" + recipient.Phone);
             Console.WriteLine("Promo         : " + selectedPromo.Name);
             Console.WriteLine("Inclusions    : " + selectedPromo.DataAllowance + " + " + selectedPromo.Freebies);
             Console.WriteLine("Price         : Php " + selectedPromo.Price);
@@ -262,28 +231,39 @@ namespace LoadPromo
                 return;
             }
 
-            string receipt = service.BuyPromoLoad(selectedPromo, phone, isMyNum);
-            Console.WriteLine(receipt);              
+            TransactionResponse response = service.BuyPromoLoad (selectedPromo, recipient.Phone, recipient.IsMyNum);
+
+            if (response.ResultStatus == Status.InsufficientBalance)
+            {
+                Console.WriteLine("\nInsufficient Load Balance. Please Top-Up first to avail this promo.");
+                return;
+            }
+
+            Account acc = service.GetMyAccount();
+            string expiry = DateTime.Now.AddDays(selectedPromo.ValidityDays).ToString("MM/dd/yyyy hh:mm tt");
+
+            Console.WriteLine($"\n-----------------------------------------\n" +
+               $"           NEW MESSAGE RECEIVED          \n" +
+               $"-----------------------------------------" +
+               $"\n{response.ReceiptData.Date}\n\nYou have successfully registered {selectedPromo.Name} to 0{recipient.Phone}. \nEnjoy {selectedPromo.DataAllowance} + {selectedPromo.Freebies}. \nValid until{expiry}. Remaining Load Balance: {acc.WalletBalance} \n\nRef No. {response.ReceiptData.RefNumber}\n-----------------------------------------");
         }
         
         static void RedeemPoints()
         {
-            Account acc = service.GetMyAccount();
-            Console.WriteLine("Current Points: " + acc.TotalPoints + " point(s).");
-
             Console.WriteLine("\n---- REDEEM REWARD POINTS ----");
+            Account acc = service.GetMyAccount();
             Console.WriteLine("Current Points: " + acc.TotalPoints + " point(s).");
             List<PromoItem> rewards = service.GetRewards();
 
             Console.WriteLine("Available Rewards:");
             for (int i = 0; i < rewards.Count; i++)
             {
-                Console.WriteLine($"{i + 1}. {rewards[i].Name}   (Points Required: {rewards[i].Price} pts)");
+                Console.WriteLine($"{i + 1}. {rewards[i].Name} (Points Required: {rewards[i].Price})");
             }
             Console.WriteLine($"{rewards.Count + 1}. Cancel");
             Console.Write("Select: ");
-
             int choice = GetValidMenuChoice(rewards.Count + 1);
+            
             if (choice == rewards.Count + 1) return;
 
             PromoItem selectedReward = rewards[choice - 1];
@@ -291,7 +271,7 @@ namespace LoadPromo
 
             Console.WriteLine("\n==== CONFIRM REDEMPTION ====");
             Console.WriteLine("Reward        : " + selectedReward.Name);
-            Console.WriteLine("Points        : " + "Cost " + cost + " points");
+            Console.WriteLine("Deduction        : " + cost + " points");
             Console.WriteLine("-------------------------------");
             Console.WriteLine("1. REDEEM");
             Console.WriteLine("2. Cancel");
@@ -302,8 +282,21 @@ namespace LoadPromo
                 return;
             }
 
-            string result = service.RedeemPoints(selectedReward, cost);
-            Console.WriteLine(result); 
+            TransactionResponse response = service.RedeemPoints(selectedReward, selectedReward.Price);
+
+            if (response.ResultStatus == Status.InsufficientPoints)
+            {
+                Console.WriteLine("\nTransaction Failed: Insufficient points to redeem this reward.");
+                return;
+            }
+
+            acc = service.GetMyAccount();
+            string expiry = DateTime.Now.AddDays(selectedReward.ValidityDays).ToString("MM/dd/yyyy hh:mm tt");
+
+            Console.WriteLine($"\n-----------------------------------------\n" +
+               $"           NEW MESSAGE RECEIVED          \n" +
+               $"-----------------------------------------" + 
+               $"\nCongratultions! You successfully redeemed {selectedReward.Name} using {selectedReward.Price} points!\nEnjoy {selectedReward.DataAllowance}, valid until {expiry}.\nRemaining Points: {acc.TotalPoints} \n\nRef No. {response.ReceiptData.RefNumber}\n-----------------------------------------");
         }
 
         static void AccountStatus()
@@ -325,6 +318,7 @@ namespace LoadPromo
                 Console.WriteLine("\nPromo Status: You are not registered to any promo.");
             }
         }
+
         static void ShowHistory()
         {
             Console.WriteLine("\n===== TRANSACTION HISTORY =====");
@@ -367,7 +361,7 @@ namespace LoadPromo
                             if (num >= 1 && num <= max)
                                 return num;
                         }
-                        Console.Write("Invalid. Please try again. \nSelect" + " (1-" + max + "): ");
+                        Console.Write("Invalid. Please enter a number within the range. \nSelect" + " (1-" + max + "): ");
                     }
                 }
 
@@ -398,6 +392,33 @@ namespace LoadPromo
                         Console.Write("Invalid. Please input a positive number only. \nEnter amount: Php ");
                     }
                 }
-           
-      }
+
+        static string GetValidPhoneNumber()
+        {
+            while (true)
+            {
+                string number = Console.ReadLine();
+
+                if (string.IsNullOrWhiteSpace(number))
+                {
+                    Console.Write("Mobile number cannot be empty. \n\nPlease enter your number again: (+63)");
+                    continue;
+                }
+
+                bool isALLDigits = true;
+                for (int i = 0; i < number.Length; i++)
+                    if (!char.IsDigit(number[i]))
+                    {
+                        isALLDigits = false;
+                        break;
+                    }
+
+                if (number.Length == 10 && isALLDigits)
+                    return number;
+                else
+                    Console.Write("Invalid format (+63 XXXXXXXXXX). Input must be all digits. \n\nPlease enter your number again: (+63)");
+            }
+        }
+
+    }
 }

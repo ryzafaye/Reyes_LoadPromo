@@ -4,7 +4,7 @@ using LoadPromoModels;
 
 namespace LoadPromoDataService
 {
-    public class Data
+    public static class Data
     {
         public static Account CurrentAccount { get; set; } = new Account();
         public static List<Transaction>TransactionHistory { get; set; } = new List<Transaction>();
