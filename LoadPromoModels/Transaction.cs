@@ -8,14 +8,20 @@ namespace LoadPromoModels
 {
     public class Transaction
     {
-        public string RefNumber { get; set; } = string.Empty;
+        public string ReferenceNumber { get; set; } = string.Empty;
         public string Date { get; set; } = string.Empty;
-        public string Details { get; set; } = string.Empty;
+        public string PhoneNumber { get; set; } = string.Empty;
+        public string LoadType { get; set; } = string.Empty;
+        public double Amount { get; set; }
+        public string PaymentMethod { get; set; } = string.Empty;
     }
 
     public enum Status
     {
-        Success, InvalidAmount, InsufficientBalance, InsufficientPoints
+        Success, 
+        InvalidAmount, 
+        InsufficientBalance,
+        InsufficientPoints
     }
 
     public class TransactionResponse

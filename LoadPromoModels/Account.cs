@@ -10,15 +10,14 @@ namespace LoadPromoModels
     {
         public string PhoneNumber { get; set; } = string.Empty;
         public string Network { get; set; } = string.Empty;
-        public int NetworkID { get; set; }
+        public double WalletBalance { get; set; }
+        public double SimLoadBalance { get; set; }
+        public string SimLoadExpiry { get; set; } = string.Empty;
 
-        public int WalletBalance { get; set; }
-        public double TotalPoints { get; set; }
-        public int MySimLoad { get; set; }
 
-        public string ActivePromo { get; set; } = "None";
-        public string ActiveData { get; set; } = "None";
-        public string ActiveExpiry { get; set; } = "None";
-        public string ActiveFreebies { get; set; } = "None";
+        public string ActivePromo { get; set; } = string.Empty;
+        public string ActiveData { get; set; } = string.Empty;
+        public string ActiveExpiry { get; set; } = string.Empty;
+        public string ActiveFreebies { get; set; } = string.Empty;
     }
 }

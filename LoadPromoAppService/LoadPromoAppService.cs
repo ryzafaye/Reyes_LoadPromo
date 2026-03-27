@@ -6,60 +6,77 @@ using LoadPromoModels;
 namespace LoadPromoAppService
 {
     public class TransactionService
-    {
-        private AccountHolder accHolder = new AccountHolder();
-        private TransactionHolder transacHolder = new TransactionHolder();
-        private PromoHolder promoHolder = new PromoHolder();
-        private NetworkHolder netHolder = new NetworkHolder();
-        private LoadOptionsHolder regLoadHolder = new LoadOptionsHolder();
-        private Random rnd = new Random();
+    {      
+        AccountDataService accountService = new AccountDataService(new LoadPromoAccountDB());
+        TransactionDataService transacService = new TransactionDataService(new LoadPromoTransactionDB());
 
-        public string GenerateRef()
+        private LoadPromoData loadPromoData = new LoadPromoData();
+        private Account _currentAccount;
+        public TransactionService()
         {
-            return rnd.Next(1000000, 9999999).ToString();
+            _currentAccount = null;
         }
 
-        public void RegisterUser(string network, int networkId, string phone)
+        public Account GetMyAccount() 
         {
-            Account acc = accHolder.GetAccount();
-            acc.Network = network;
-            acc.NetworkID = networkId;
-            acc.PhoneNumber = phone;
+            if (_currentAccount != null)
+            {
+                Account acc = accountService.GetByPhone(_currentAccount.PhoneNumber);
 
-            accHolder.UpdateAccount(acc);
+                if (acc != null)
+                {
+                    CheckExpirations(acc);
+                    _currentAccount = acc;
+                }
+                return acc;
+            }
+            return null;
         }
 
-        public Account GetMyAccount()
+        public bool LoadAccountIfExists(string phone)
         {
-            return accHolder.GetAccount();
+            var acc = accountService.GetByPhone(phone); 
+            if (acc != null)
+            {
+                _currentAccount = acc; 
+                return true;
+            }
+            return false; 
         }
+
+        public void RegisterUser(string network, string phone)
+        {
+            _currentAccount = new Account
+            {
+                Network = network,
+                PhoneNumber = phone,
+            };
+            accountService.Add(_currentAccount);
+        }   
 
         public List<Transaction> GetHistory()
         {
-            return transacHolder.GetAll();
+            return transacService.GetAll()
+            .Where(t => t.PhoneNumber == _currentAccount.PhoneNumber)
+            .ToList();
         }
 
         public List<string> GetNetworks()
         {
-            return netHolder.GetAllNetworks();
+            return loadPromoData.GetAllNetworks();
         }
 
-        public List<int> GetRegularLoadOptions()
+        public List<double> GetRegularLoadOptions()
         {
-            return regLoadHolder.GetRegLoadOptions();
+            return loadPromoData.GetRegLoadOptions();
         }
 
-        public List<PromoItem> GetPromos(int networkId)
+        public List<PromoItem> GetPromos(string networkName)
         {
-            return promoHolder.GetPromosByNetwork(networkId);
+            return loadPromoData.GetPromosByNetwork(networkName);
         }
 
-        public List<PromoItem> GetRewards()
-        {
-            return promoHolder.GetRewards();
-        }
-
-        public TransactionResponse TopUp (int amount)
+        public TransactionResponse TopUp(double amount)
         {
             if (amount < 5)
                 return new TransactionResponse 
@@ -67,114 +84,130 @@ namespace LoadPromoAppService
                  ResultStatus = Status.InvalidAmount 
             };
 
-            Account acc = accHolder.GetAccount();
-            acc.WalletBalance += amount;
-            accHolder.UpdateAccount(acc);
+            _currentAccount.WalletBalance += amount;
+            accountService.UpdateAccount(_currentAccount);
 
-            Transaction t = new Transaction
-            {
-                Date = DateTime.Now.ToString("MM/dd/yyyy hh:mm tt"),
-                RefNumber = GenerateRef(),
-                Details = "Cashed-In Php " + amount + " to Wallet"
-            };
-            transacHolder.Add(t);
+            Transaction t = RecordTransaction("Topped-Up Wallet", amount, "");
 
             return new TransactionResponse 
             { 
                 ResultStatus = Status.Success, ReceiptData = t 
             };
-        }
+        }  
 
-        public TransactionResponse BuyRegularLoad(int amount, string userPhone, bool isMyNumber)
+        public TransactionResponse BuyRegularLoad(double amount)
         {
-            Account acc = accHolder.GetAccount();
-            if (acc.WalletBalance < amount)
-                return new TransactionResponse
-                {
-                    ResultStatus = Status.InsufficientBalance
-                };
+            if (_currentAccount.WalletBalance < amount)
+                return new TransactionResponse { ResultStatus = Status.InsufficientBalance };
 
-            acc.WalletBalance -= amount;
-            double pointsEarned = amount / 100.0;
-            acc.TotalPoints += pointsEarned;
+            _currentAccount.WalletBalance -= amount;
+            _currentAccount.SimLoadBalance += amount;
+            _currentAccount.SimLoadExpiry = DateTime.Now.AddDays(365).ToString("MM/dd/yyyy hh:mm tt");
 
-            if (isMyNumber) acc.MySimLoad += amount;
-            accHolder.UpdateAccount(acc);
+            accountService.UpdateAccount(_currentAccount);
 
-            Transaction t = new Transaction
-            {
-                Date = DateTime.Now.ToString("MM/dd/yyyy hh:mm tt"),
-                RefNumber = GenerateRef(),
-                Details = "Loaded Regular " + amount + " to 0" + userPhone
-            };
-            transacHolder.Add(t);
-
-            return new TransactionResponse { ResultStatus = Status.Success, ReceiptData = t};
-        }
-        public TransactionResponse BuyPromoLoad(PromoItem promo, string userPhone, bool isMyNumber)
-        {
-            Account acc = accHolder.GetAccount();
-
-            if (acc.WalletBalance < promo.Price)
-                return new TransactionResponse
-                {
-                    ResultStatus = Status.InsufficientBalance
-                };
-
-            acc.WalletBalance -= promo.Price;
-            string expiry = DateTime.Now.AddDays(promo.ValidityDays).ToString("MM/dd/yyyy hh:mm tt");
-           
-            if (isMyNumber)
-            {
-                acc.ActivePromo = promo.Name;
-                acc.ActiveData = promo.DataAllowance;
-                acc.ActiveFreebies = promo.Freebies;
-                acc.ActiveExpiry = expiry;
-            }
-
-            accHolder.UpdateAccount(acc);
-
-            Transaction t = new Transaction
-            {
-                Date = DateTime.Now.ToString("MM/dd/yyyy hh:mm tt"),
-                RefNumber = GenerateRef(),
-                Details = "Registered " + promo.Name + " to 0" + userPhone
-            };
-            transacHolder.Add(t);
-
-            return new TransactionResponse { ResultStatus = Status.Success, ReceiptData = t};
-        }
-
-        public TransactionResponse RedeemPoints(PromoItem reward, int pointsCost)
-        {
-            Account acc = accHolder.GetAccount();
-
-            if (acc.TotalPoints < pointsCost)
-                return new TransactionResponse
-                {
-                    ResultStatus = Status.InsufficientPoints
-                };
-
-            acc.TotalPoints -= pointsCost;
-            string expiry = DateTime.Now.AddDays(reward.ValidityDays).ToString("MM/dd/yyyy hh:mm tt");
-
-            acc.ActivePromo = reward.Name;
-            acc.ActiveData = reward.DataAllowance;
-            acc.ActiveExpiry = expiry;
-            accHolder.UpdateAccount(acc);
-
-            Transaction t = new Transaction 
-            { 
-                Date = DateTime.Now.ToString("MM/dd/yyyy hh:mm tt"),
-                RefNumber = GenerateRef(), 
-                Details = "Redeemed Reward: " + reward.Name 
-            };
-            transacHolder.Add(t);
+            Transaction t = RecordTransaction($"Regular Load {amount}", amount, "Wallet Balance");
 
             return new TransactionResponse { ResultStatus = Status.Success, ReceiptData = t };
-
         }
 
+        public TransactionResponse BuyPromoLoad(PromoItem promo, int paymentOption)
+        {
+            if (paymentOption == 1) 
+            {
+                if (_currentAccount.WalletBalance < promo.Price)
+                    return new TransactionResponse { ResultStatus = Status.InsufficientBalance };
 
+                _currentAccount.WalletBalance -= promo.Price;
+            }
+            else if (paymentOption == 2) 
+            {
+                if (_currentAccount.SimLoadBalance < promo.Price)
+                    return new TransactionResponse { ResultStatus = Status.InsufficientBalance };
+
+                _currentAccount.SimLoadBalance -= promo.Price;
+            }
+
+                _currentAccount.ActivePromo = promo.Name;
+                _currentAccount.ActiveData = promo.DataAllowance;
+                _currentAccount.ActiveFreebies = promo.Freebies;
+                _currentAccount.ActiveExpiry = DateTime.Now.AddDays(promo.ValidityDays).ToString("MM/dd/yyyy hh:mm tt");
+
+            accountService.UpdateAccount(_currentAccount);
+
+            string paymentText = (paymentOption == 1) ? "Wallet Balance" : "Load Balance";
+            Transaction t = RecordTransaction(promo.Name, promo.Price, paymentText);
+
+            return new TransactionResponse { ResultStatus = Status.Success, ReceiptData = t};
+        }
+
+        private void CheckExpirations(Account acc)
+        {
+            bool needsUpdate = false;
+            DateTime now = DateTime.Now;
+
+            if (!string.IsNullOrEmpty(acc.ActiveExpiry) && DateTime.TryParse(acc.ActiveExpiry, out DateTime promoDate))
+            {
+                if (now > promoDate)
+                {
+                    acc.ActivePromo = "";
+                    acc.ActiveData = "";
+                    acc.ActiveFreebies = "";
+                    acc.ActiveExpiry = "";
+                    needsUpdate = true;
+                }
+            }
+
+            if (!string.IsNullOrEmpty(acc.SimLoadExpiry) && DateTime.TryParse(acc.SimLoadExpiry, out DateTime regLoadDate))
+            {
+                if (now > regLoadDate)
+                {
+                    acc.SimLoadBalance = 0;
+                    acc.SimLoadExpiry = "";
+                    needsUpdate = true;
+                }
+            }
+            if (needsUpdate)
+            {
+                accountService.UpdateAccount(acc);
+            }
+        }
+
+        public TransactionResponse CancelActivePromo()
+        {
+            string canceledPromo = _currentAccount.ActivePromo;
+
+            _currentAccount.ActivePromo = string.Empty;
+            _currentAccount.ActiveData = string.Empty;
+            _currentAccount.ActiveFreebies = string.Empty;
+            _currentAccount.ActiveExpiry = string.Empty;
+
+            accountService.UpdateAccount(_currentAccount);
+
+            Transaction t = RecordTransaction($"Unsubscribed from {canceledPromo}", 0, " ");
+
+            return new TransactionResponse { ResultStatus = Status.Success, ReceiptData = t };
+        }
+
+        public string GenerateRef()
+        {
+            string refNumber = Guid.NewGuid().ToString("N").Substring(0, 15);
+            return refNumber;
+        }
+
+        private Transaction RecordTransaction (string loadType, double amount, string paymentMethod) 
+        {
+            Transaction t = new Transaction
+            {
+                ReferenceNumber = GenerateRef(),
+                Date = DateTime.Now.ToString("MM/dd/yyyy hh:mm tt"),
+                PhoneNumber = _currentAccount.PhoneNumber,
+                LoadType = loadType,
+                Amount = amount,
+                PaymentMethod = paymentMethod
+            };
+            transacService.Add(t);
+            return t;
+        }
     }
 }
