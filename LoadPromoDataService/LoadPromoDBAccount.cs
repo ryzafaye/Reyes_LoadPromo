@@ -21,11 +21,12 @@ namespace LoadPromoDataService
 
         public void Add(Account account)
         {
-            var insertStatement = "INSERT INTO Accounts (phone_number, network, wallet_balance, sim_load_balance, sim_load_expiry, active_promo, active_data, active_freebies, active_expiry) VALUES (@Phone, @Net, @Wal, @Load, @LoadExp, @Promo, @Data, @Free, @Exp)";
+            var insertStatement = "INSERT INTO Accounts (phone_number, pin, network, wallet_balance, sim_load_balance, sim_load_expiry, active_promo, active_data, active_freebies, active_expiry) VALUES (@Phone, @Pin, @Net, @Wal, @Load, @LoadExp, @Promo, @Data, @Free, @Exp)";
 
             SqlCommand insertCommand = new SqlCommand(insertStatement, sqlConnection);
 
             insertCommand.Parameters.AddWithValue("@Phone", account.PhoneNumber ?? "");
+            insertCommand.Parameters.AddWithValue("@Pin", account.PIN);
             insertCommand.Parameters.AddWithValue("@Net", account.Network ?? "");
             insertCommand.Parameters.AddWithValue("@Wal", account.WalletBalance);
             insertCommand.Parameters.AddWithValue("@Load", account.SimLoadBalance);
@@ -54,6 +55,7 @@ namespace LoadPromoDataService
             {
                 Account account = new Account();
                 account.PhoneNumber = reader["phone_number"].ToString();
+                account.PIN = reader["PIN"].ToString();
                 account.Network = reader["network"].ToString();
                 account.WalletBalance = Convert.ToDouble(reader["wallet_balance"]);
                 account.SimLoadBalance = Convert.ToDouble(reader["sim_load_balance"]);
@@ -84,6 +86,7 @@ namespace LoadPromoDataService
             {
                 account = new Account();
                 account.PhoneNumber = reader["phone_number"].ToString();
+                account.PIN = reader["pin"].ToString();
                 account.Network = reader["network"].ToString();
                 account.WalletBalance = Convert.ToDouble(reader["wallet_balance"]);
                 account.SimLoadBalance = Convert.ToDouble(reader["sim_load_balance"]);
@@ -102,11 +105,12 @@ namespace LoadPromoDataService
         {
             sqlConnection.Open();
 
-            var updateStatement = "UPDATE Accounts SET network = @Net, wallet_balance = @Wal, sim_load_balance = @Load, sim_load_expiry = @LoadExp, active_promo = @Promo, active_data = @Data, active_freebies = @Free, active_expiry = @Exp WHERE phone_number = @Phone";
+            var updateStatement = "UPDATE Accounts SET pin = @PIN, network = @Net, wallet_balance = @Wal, sim_load_balance = @Load, sim_load_expiry = @LoadExp, active_promo = @Promo, active_data = @Data, active_freebies = @Free, active_expiry = @Exp WHERE phone_number = @Phone";
 
             SqlCommand updateCommand = new SqlCommand(updateStatement, sqlConnection);
 
             updateCommand.Parameters.AddWithValue("@Phone", account.PhoneNumber);
+            updateCommand.Parameters.AddWithValue("@Pin", account.PIN);
             updateCommand.Parameters.AddWithValue("@Net", account.Network ?? "");
             updateCommand.Parameters.AddWithValue("@Wal", account.WalletBalance);
             updateCommand.Parameters.AddWithValue("@Load", account.SimLoadBalance);

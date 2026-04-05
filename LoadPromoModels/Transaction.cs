@@ -12,6 +12,7 @@ namespace LoadPromoModels
         public string Date { get; set; } = string.Empty;
         public string PhoneNumber { get; set; } = string.Empty;
         public string LoadType { get; set; } = string.Empty;
+        public string Recipient { get; set; } = string.Empty;
         public double Amount { get; set; }
         public string PaymentMethod { get; set; } = string.Empty;
     }
@@ -21,7 +22,7 @@ namespace LoadPromoModels
         Success, 
         InvalidAmount, 
         InsufficientBalance,
-        InsufficientPoints
+        Error
     }
 
     public class TransactionResponse

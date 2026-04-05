@@ -7,8 +7,8 @@ namespace LoadPromoAppService
 {
     public class TransactionService
     {      
-        AccountDataService accountService = new AccountDataService(new LoadPromoAccountDB());
-        TransactionDataService transacService = new TransactionDataService(new LoadPromoTransactionDB());
+        AccountDataService accountService = new AccountDataService(new JsonAccountHolder());
+        TransactionDataService transacService = new TransactionDataService(new JsonTransactionHolder());
 
         private LoadPromoData loadPromoData = new LoadPromoData();
         private Account _currentAccount;
@@ -33,31 +33,44 @@ namespace LoadPromoAppService
             return null;
         }
 
-        public bool LoadAccountIfExists(string phone)
+        public bool IsAccountRegistered(string phone)
         {
-            var acc = accountService.GetByPhone(phone); 
-            if (acc != null)
-            {
-                _currentAccount = acc; 
-                return true;
-            }
-            return false; 
+            return accountService.GetByPhone(phone) != null;
         }
 
-        public void RegisterUser(string network, string phone)
+        public bool Login(string phone, string pin)
         {
-            _currentAccount = new Account
+            var acc = accountService.GetByPhone(phone);
+            if (acc != null && acc.PIN == pin)
+            {
+                CheckExpirations(acc);
+                _currentAccount = acc;
+                return true;
+            }
+            return false;
+        }
+
+        public void RegisterUser(string network, string phone, string pin)
+        {
+            Account newAccount = new Account
             {
                 Network = network,
+                PIN = pin,
                 PhoneNumber = phone,
             };
-            accountService.Add(_currentAccount);
-        }   
+            accountService.Add(newAccount);
+            _currentAccount = newAccount;
+        }
+
+        public Account GetAccountInfo(string phone)
+        {
+            return accountService.GetByPhone(phone);
+        }
 
         public List<Transaction> GetHistory()
         {
             return transacService.GetAll()
-            .Where(t => t.PhoneNumber == _currentAccount.PhoneNumber)
+            .Where(t => t.PhoneNumber == _currentAccount.PhoneNumber || t.Recipient == _currentAccount.PhoneNumber)
             .ToList();
         }
 
@@ -87,7 +100,7 @@ namespace LoadPromoAppService
             _currentAccount.WalletBalance += amount;
             accountService.UpdateAccount(_currentAccount);
 
-            Transaction t = RecordTransaction("Topped-Up Wallet", amount, "");
+            Transaction t = RecordTransaction("Topped-Up Wallet", amount, "", _currentAccount.PhoneNumber);
 
             return new TransactionResponse 
             { 
@@ -95,49 +108,66 @@ namespace LoadPromoAppService
             };
         }  
 
-        public TransactionResponse BuyRegularLoad(double amount)
+        public TransactionResponse BuyRegularLoad(double amount, string receiverPhone)
         {
-            if (_currentAccount.WalletBalance < amount)
-                return new TransactionResponse { ResultStatus = Status.InsufficientBalance };
+            Account sender = _currentAccount;
+            bool isForMe = (sender.PhoneNumber == receiverPhone);
+            Account receiver = isForMe ? sender : accountService.GetByPhone(receiverPhone);
 
-            _currentAccount.WalletBalance -= amount;
-            _currentAccount.SimLoadBalance += amount;
-            _currentAccount.SimLoadExpiry = DateTime.Now.AddDays(365).ToString("MM/dd/yyyy hh:mm tt");
+            if (receiver == null) return new TransactionResponse { ResultStatus = Status.Error };
 
-            accountService.UpdateAccount(_currentAccount);
+            if (sender.WalletBalance < amount) return new TransactionResponse { ResultStatus = Status.InsufficientBalance };
 
-            Transaction t = RecordTransaction($"Regular Load {amount}", amount, "Wallet Balance");
+            receiver.WalletBalance -= amount;
+            receiver.SimLoadBalance += amount;
+            receiver.SimLoadExpiry = DateTime.Now.AddDays(365).ToString("MM/dd/yyyy hh:mm tt");
+
+            accountService.UpdateAccount(sender);
+            if (!isForMe) accountService.UpdateAccount(receiver);
+
+            string details = isForMe ? $"Regular Load {amount}" : "Shared Regular Load";
+
+            Transaction t = RecordTransaction(details, amount, "Wallet Balance", receiverPhone);
 
             return new TransactionResponse { ResultStatus = Status.Success, ReceiptData = t };
         }
 
-        public TransactionResponse BuyPromoLoad(PromoItem promo, int paymentOption)
+        public TransactionResponse BuyPromoLoad(PromoItem promo, int paymentOption, string receiverPhone)
         {
+            Account sender = _currentAccount;
+            bool isForMe = (sender.PhoneNumber == receiverPhone);
+            Account receiver = isForMe ? sender : accountService.GetByPhone(receiverPhone);
+
+            if (receiver == null) return new TransactionResponse { ResultStatus = Status.Error };
+
+            string paymentMethod = (paymentOption == 1) ? "Wallet Balance" : "Load Balance";
+
             if (paymentOption == 1) 
             {
-                if (_currentAccount.WalletBalance < promo.Price)
+                if (sender.WalletBalance < promo.Price)
                     return new TransactionResponse { ResultStatus = Status.InsufficientBalance };
 
-                _currentAccount.WalletBalance -= promo.Price;
+                sender.WalletBalance -= promo.Price;
             }
             else if (paymentOption == 2) 
             {
-                if (_currentAccount.SimLoadBalance < promo.Price)
+                if (sender.SimLoadBalance < promo.Price)
                     return new TransactionResponse { ResultStatus = Status.InsufficientBalance };
 
-                _currentAccount.SimLoadBalance -= promo.Price;
+                sender.SimLoadBalance -= promo.Price;
             }
 
-                _currentAccount.ActivePromo = promo.Name;
-                _currentAccount.ActiveData = promo.DataAllowance;
-                _currentAccount.ActiveFreebies = promo.Freebies;
-                _currentAccount.ActiveExpiry = DateTime.Now.AddDays(promo.ValidityDays).ToString("MM/dd/yyyy hh:mm tt");
+                receiver.ActivePromo = promo.Name;
+                receiver.ActiveData = promo.DataAllowance;
+                receiver.ActiveFreebies = promo.Freebies;
+                receiver.ActiveExpiry = DateTime.Now.AddDays(promo.ValidityDays).ToString("MM/dd/yyyy hh:mm tt");
 
-            accountService.UpdateAccount(_currentAccount);
+            accountService.UpdateAccount(sender);
+            if (!isForMe) accountService.UpdateAccount(receiver);
 
-            string paymentText = (paymentOption == 1) ? "Wallet Balance" : "Load Balance";
-            Transaction t = RecordTransaction(promo.Name, promo.Price, paymentText);
-
+            string details = isForMe ? promo.Name : $"Shared {promo.Name}";
+            Transaction t = RecordTransaction(details, promo.Price, paymentMethod, receiverPhone);
+            
             return new TransactionResponse { ResultStatus = Status.Success, ReceiptData = t};
         }
 
@@ -184,18 +214,18 @@ namespace LoadPromoAppService
 
             accountService.UpdateAccount(_currentAccount);
 
-            Transaction t = RecordTransaction($"Unsubscribed from {canceledPromo}", 0, " ");
+            Transaction t = RecordTransaction($"Unsubscribed from {canceledPromo}", 0, "", "");
 
             return new TransactionResponse { ResultStatus = Status.Success, ReceiptData = t };
         }
 
         public string GenerateRef()
         {
-            string refNumber = Guid.NewGuid().ToString("N").Substring(0, 15);
+            string refNumber = Guid.NewGuid().ToString("N").Substring(0, 16).ToUpper();
             return refNumber;
         }
 
-        private Transaction RecordTransaction (string loadType, double amount, string paymentMethod) 
+        private Transaction RecordTransaction (string loadType, double amount, string paymentMethod, string receiver) 
         {
             Transaction t = new Transaction
             {
@@ -203,6 +233,7 @@ namespace LoadPromoAppService
                 Date = DateTime.Now.ToString("MM/dd/yyyy hh:mm tt"),
                 PhoneNumber = _currentAccount.PhoneNumber,
                 LoadType = loadType,
+                Recipient = receiver,
                 Amount = amount,
                 PaymentMethod = paymentMethod
             };

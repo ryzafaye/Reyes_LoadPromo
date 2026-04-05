@@ -21,7 +21,7 @@ namespace LoadPromoDataService
 
         public void Add(Transaction t)
         {
-            var insertStatement = "INSERT INTO Transactions (phone_number, load_type, amount, transaction_date, reference_number, payment_method) VALUES (@Phone, @Details, @Amount, @Date, @Ref, @PayMethod)";
+            var insertStatement = "INSERT INTO Transactions (phone_number, load_type, amount, transaction_date, reference_number, payment_method, recipient_number) VALUES (@Phone, @Details, @Amount, @Date, @Ref, @PayMethod, @Recipient)";
             SqlCommand insertCommand = new SqlCommand(insertStatement, sqlConnection);
 
             insertCommand.Parameters.AddWithValue("@Phone", t.PhoneNumber ?? "");
@@ -30,6 +30,7 @@ namespace LoadPromoDataService
             insertCommand.Parameters.AddWithValue("@Date", t.Date ?? "");
             insertCommand.Parameters.AddWithValue("@Ref", t.ReferenceNumber ?? "");
             insertCommand.Parameters.AddWithValue("@PayMethod", t.PaymentMethod ?? "");
+            insertCommand.Parameters.AddWithValue("@Recipient", t.Recipient ?? "");
 
             sqlConnection.Open();
             insertCommand.ExecuteNonQuery();
@@ -53,7 +54,8 @@ namespace LoadPromoDataService
                 t.Amount = Convert.ToInt32(reader["amount"]);
                 t.Date = reader["transaction_date"].ToString();
                 t.ReferenceNumber = reader["reference_number"].ToString();
-                t.ReferenceNumber = reader["payment_method"].ToString();
+                t.PaymentMethod = reader["payment_method"].ToString();
+                t.Recipient = reader["recipient_number"].ToString();
 
                 transactions.Add(t);
             }

@@ -1,0 +1,26 @@
+[
+  {
+    "PhoneNumber": "09958909452",
+    "PIN": "2006",
+    "Network": "GLOBE",
+    "WalletBalance": 4260.5,
+    "SimLoadBalance": 500,
+    "SimLoadExpiry": "03/29/2027 11:13 AM",
+    "ActivePromo": "GoPLUS250",
+    "ActiveData": "30GB of data",
+    "ActiveExpiry": "04/13/2026 11:13 AM",
+    "ActiveFreebies": "15GB for apps"
+  },
+  {
+    "PhoneNumber": "09923639070",
+    "PIN": "0911",
+    "Network": "GLOBE",
+    "WalletBalance": 450,
+    "SimLoadBalance": 50,
+    "SimLoadExpiry": "04/05/2027 10:03 AM",
+    "ActivePromo": "",
+    "ActiveData": "",
+    "ActiveExpiry": "",
+    "ActiveFreebies": ""
+  }
+]

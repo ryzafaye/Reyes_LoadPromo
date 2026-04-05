@@ -9,6 +9,7 @@ namespace LoadPromoModels
     public class Account
     {
         public string PhoneNumber { get; set; } = string.Empty;
+        public string PIN { get; set; } = string.Empty;
         public string Network { get; set; } = string.Empty;
         public double WalletBalance { get; set; }
         public double SimLoadBalance { get; set; }
