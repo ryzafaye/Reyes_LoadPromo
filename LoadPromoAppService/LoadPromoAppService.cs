@@ -7,8 +7,8 @@ namespace LoadPromoAppService
 {
     public class TransactionService
     {      
-        AccountDataService accountService = new AccountDataService(new JsonAccountHolder());
-        TransactionDataService transacService = new TransactionDataService(new JsonTransactionHolder());
+        AccountDataService accountService = new AccountDataService(new LoadPromoAccountDB());
+        TransactionDataService transacService = new TransactionDataService(new LoadPromoTransactionDB());
 
         private LoadPromoData loadPromoData = new LoadPromoData();
         private Account _currentAccount;
@@ -214,7 +214,7 @@ namespace LoadPromoAppService
 
             accountService.UpdateAccount(_currentAccount);
 
-            Transaction t = RecordTransaction($"Unsubscribed from {canceledPromo}", 0, "", "");
+            Transaction t = RecordTransaction($"Unsubscribed from {canceledPromo}", 0, "", _currentAccount.PhoneNumber);
 
             return new TransactionResponse { ResultStatus = Status.Success, ReceiptData = t };
         }

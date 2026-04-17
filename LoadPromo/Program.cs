@@ -19,7 +19,7 @@ namespace LoadPromo
                 {
                     Account acc = service.GetMyAccount();
 
-                    Message("\n========  AVAIL SERVICES  ========", ConsoleColor.Cyan);
+                    Console.WriteLine("\n========  AVAIL SERVICES  ========");
                     Console.WriteLine("-----------------------------------");
                     Console.WriteLine("Wallet Balance: " + acc.WalletBalance);
                     Console.WriteLine("Load Balance: " + acc.SimLoadBalance);
@@ -66,7 +66,7 @@ namespace LoadPromo
         {
             while (true)
             {
-                Message("\n======== LOAD PROMO SYSTEM ========", ConsoleColor.Cyan);
+                Console.WriteLine("\n======== LOAD PROMO SYSTEM ========");
                 Console.WriteLine("-----------------------------------");
                 Console.WriteLine("1. Register New Account");
                 Console.WriteLine("2. Login");
@@ -87,7 +87,7 @@ namespace LoadPromo
 
         static bool Register()
         {
-            Message("\n=======  REGISTER ACCOUNT  ========", ConsoleColor.Cyan);
+            Console.WriteLine("\n=======  REGISTER ACCOUNT  ========");
             Console.Write("Enter your mobile number: (+63)");
             string phone = GetValidPhoneNumber();
 
@@ -121,7 +121,7 @@ namespace LoadPromo
 
         static bool Login()
         {
-            Message("\n=============  LOGIN  =============", ConsoleColor.Cyan);
+            Console.WriteLine("\n=============  LOGIN  =============");
             Console.Write("Enter your mobile number: (+63)");
             string phone = GetValidPhoneNumber();
 
@@ -153,7 +153,7 @@ namespace LoadPromo
  
         static void TopUp()
         {
-            Message("\n========== TOP-UP WALLET ==========", ConsoleColor.Cyan);
+            Console.WriteLine("\n========== TOP-UP WALLET ==========");
             Console.Write("\nEnter amount to Cash-In: Php ");
             double amount = GetValidNumber();
             TransactionResponse response = service.TopUp(amount);
@@ -171,7 +171,7 @@ namespace LoadPromo
 
         static void RegularLoad()
         {
-            Message("\n=========== REGULAR LOAD ==========", ConsoleColor.Cyan);
+            Console.WriteLine("\n=========== REGULAR LOAD ==========");
 
             Account acc = service.GetMyAccount();
             string receiverPhone = GetRecipientNumber(acc.PhoneNumber);
@@ -240,7 +240,7 @@ namespace LoadPromo
 
         static void PromoLoad()
         {
-            Message("\n============ BUY PROMO ============", ConsoleColor.Cyan);
+            Console.WriteLine("\n============ BUY PROMO ============");
 
             Account acc = service.GetMyAccount();
             string receiverPhone = GetRecipientNumber(acc.PhoneNumber);
@@ -334,7 +334,7 @@ namespace LoadPromo
         {
             Account acc = service.GetMyAccount();
 
-            Message("\n========= ACCOUNT STATUS ==========", ConsoleColor.Cyan);
+            Console.WriteLine("\n========= ACCOUNT STATUS ==========");
 
             Console.WriteLine("\nCurrent Wallet Balance : Php " + acc.WalletBalance);
             Console.WriteLine("SIM Regular Load       : " + acc.SimLoadBalance);
@@ -368,7 +368,7 @@ namespace LoadPromo
                         Console.WriteLine($"\n-----------------------------------------\n" +
                            $"            NEW MESSAGE RECEIVED          \n" +
                            $"-----------------------------------------" +
-                           $"\n{response.ReceiptData.Date}\n\nYou have successfully unsubscribed from {acc.ActivePromo}. All remaining data has been forfeited.\n\nRef No. {response.ReceiptData.ReferenceNumber}\n-----------------------------------------");
+                           $"\n{response.ReceiptData.Date}\n\nYou have successfully unsubscribed from the promo. All remaining data has been forfeited.\n\nRef No. {response.ReceiptData.ReferenceNumber}\n-----------------------------------------");
                     }
                     else
                     {
@@ -386,7 +386,7 @@ namespace LoadPromo
 
         static void History()
         {
-            Message("\n======= TRANSACTION HISTORY =======", ConsoleColor.Cyan);
+            Console.WriteLine("\n======= TRANSACTION HISTORY =======");
 
             List<LoadPromoModels.Transaction> history = service.GetHistory();
 
@@ -397,7 +397,7 @@ namespace LoadPromo
 
             foreach (var t in history)
             {
-            Console.WriteLine($"\n{t.Date} | Ref No.: {t.ReferenceNumber,-6} | Recipient: {t.Recipient,-10} | {t.LoadType,-16} | Amount: Php {t.Amount}");
+            Console.WriteLine($"{t.Date} | Ref No.: {t.ReferenceNumber,-6} | Recipient: {t.Recipient,-10} | {t.LoadType,-27} | Php {t.Amount, -4}");
             }
         }
 
@@ -492,7 +492,7 @@ namespace LoadPromo
                 if (string.IsNullOrWhiteSpace(number))
                 {
                     Message("Mobile number cannot be empty.", ConsoleColor.Green);
-                    Console.Write("\n\nPlease enter your number again: (+63)");
+                    Console.Write("\nPlease enter your number again: (+63)");
                     continue;
                 }
 
@@ -510,8 +510,8 @@ namespace LoadPromo
                 }
                 else
                 { 
-                    Message("Invalid format (+63 XXXXXXXXXX). Enter you 10-digit number.", ConsoleColor.Red);
-                    Console.Write("\n\nPlease enter your number again: (+63)");
+                    Message("Invalid format (+63 XXXXXXXXXX). Enter your 10-digit number.", ConsoleColor.Red);
+                    Console.Write("\nPlease enter your number again: (+63)");
                 }
             }
         }
